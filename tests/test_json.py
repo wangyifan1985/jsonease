@@ -8,7 +8,7 @@ from datetime import timedelta, timezone
 from datetime import datetime
 from collections import UserList, UserDict
 from unittest import TestCase
-from sysdev.tools.common.sampan import json as sj
+import jsonease as sj
 
 
 class Student(object):
@@ -54,7 +54,7 @@ class TestJson(TestCase):
 
     def test_loads_perf_null(self):
         stmt1 = """json.loads('   null   ')"""
-        setup1 = "from sysdev.tools.common.sampan import json"
+        setup1 = "import jsonease as json"
         setup2 = "import json"
         print(timeit.timeit(stmt=stmt1, setup=setup1, number=1000))
         print(timeit.timeit(stmt=stmt1, setup=setup2, number=1000))
@@ -70,7 +70,7 @@ class TestJson(TestCase):
 
     def test_loads_perf_boolean(self):
         stmt1 = """json.loads('   true   ')"""
-        setup1 = "from sysdev.tools.common.sampan import json"
+        setup1 = "import jsonease as json"
         setup2 = "import json"
         print(timeit.timeit(stmt=stmt1, setup=setup1, number=1000))
         print(timeit.timeit(stmt=stmt1, setup=setup2, number=1000))
@@ -90,7 +90,7 @@ class TestJson(TestCase):
 
     def test_loads_perf_number(self):
         stmt1 = """json.loads('  -3.45  ')"""
-        setup1 = "from sysdev.tools.common.sampan import json"
+        setup1 = "import jsonease as json"
         setup2 = "import json"
         print(timeit.timeit(stmt=stmt1, setup=setup1, number=1000))
         print(timeit.timeit(stmt=stmt1, setup=setup2, number=1000))
@@ -111,7 +111,7 @@ class TestJson(TestCase):
 
     def test_loads_perf_string_2(self):
         stmt1 = """json.loads('  "  dslddjjjjjjjjj\\u7890jjjjjjjjjjjjjjjs"')"""
-        setup1 = "from sysdev.tools.common.sampan import json"
+        setup1 = "import jsonease as json"
         setup2 = "import json"
         print(timeit.timeit(stmt=stmt1, setup=setup1, number=1000))
         print(timeit.timeit(stmt=stmt1, setup=setup2, number=1000))
