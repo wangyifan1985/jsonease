@@ -12,7 +12,7 @@ except ImportError:
 if platform.python_version_tuple() < ('3', '6') or platform.python_implementation() != 'CPython':
     raise RuntimeError('CPython version 3.6+ is required.')
 
-from . import jsonease
+import jsonease
 
 setup(name='jsonease',
       version=jsonease.__version__,
@@ -21,7 +21,7 @@ setup(name='jsonease',
       author=jsonease.__author__,
       author_email='yifan_wang@silanis.com',
       url='https://github.com/wangyifan1985/jsonease',
-      packages=['jsonease'],
+      py_modules=['jsonease'],
       license='MIT',
       platforms='any',
       classifiers=['Development Status :: 4 - Beta',

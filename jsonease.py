@@ -37,7 +37,7 @@ __all__ = ['dump', 'dumps', 'load', 'loads', 'Encoder', 'Decoder', 'Formatter']
 __author__ = ['Yifan Wang <yifan_wang@silanis.com>']
 __copyright__ = "Copyright (C) 2017, Yifan WANG"
 __license__ = "MIT"
-__version__ = '2017.11.03'
+__version__ = '2017.11.3'
 __description__ = 'JSON tools'
 __status__ = "Internal"
 
