@@ -50,7 +50,7 @@ class TestJson(TestCase):
 
         samples = ['nullsdkflsdf', 'djlfsdlnull', 'dskfjlnulllskjflkds']
         for s in samples:
-            self.assertRaises(sj.JSONError, sj.loads, s)
+            self.assertRaises(sj.JsoneaseError, sj.loads, s)
 
     def test_loads_perf_null(self):
         stmt1 = """json.loads('   null   ')"""
@@ -66,7 +66,7 @@ class TestJson(TestCase):
 
         samples = ('truefalse', 'true false', '   true  false ', '  False')
         for s in samples:
-            self.assertRaises(sj.JSONError, sj.loads, s)
+            self.assertRaises(sj.JsoneaseError, sj.loads, s)
 
     def test_loads_perf_boolean(self):
         stmt1 = """json.loads('   true   ')"""
@@ -86,7 +86,7 @@ class TestJson(TestCase):
 
         samples = ['--0.123', '.123', '  ..123  ', '-.123 ']
         for s in samples:
-            self.assertRaises(sj.JSONError, sj.loads, s)
+            self.assertRaises(sj.JsoneaseError, sj.loads, s)
 
     def test_loads_perf_number(self):
         stmt1 = """json.loads('  -3.45  ')"""

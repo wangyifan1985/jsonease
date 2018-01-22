@@ -46,14 +46,38 @@ JSON_ENCODING = 'utf-8'
 RE_FLAGS = re.MULTILINE | re.DOTALL
 
 
-###############################################################################
 # Errors ######################################################################
 ###############################################################################
-class JSONError(Exception):
-    pass
+class JsoneaseError(Exception):
+    @staticmethod
+    def linecol(s: str, pos: int):
+        line = s.count('\n', 0, pos) + 1
+        col = pos + 1 if line == 1 else pos - s.rindex('\n', 0, pos)
+        return str(line), str(col)
 
 
-###############################################################################
+class JsoneaseEncodeError(JsoneaseError):
+    def __init__(self, obj: Any, msg: str='Can not encode python object: '):
+        super(JsoneaseEncodeError, self).__init__(''.join((msg, str(obj))))
+
+
+class JsoneaseDecodeError(JsoneaseError):
+    def __init__(self, s: str, pos: int, msg: str='Can not decode json string: '):
+        line, col = self.linecol(s, pos)
+        super(JsoneaseDecodeError, self).__init__(''.join((msg, line, ' : ', col)))
+
+
+class JsoneaseCastError(JsoneaseError):
+    def __init__(self, org: Any, tgt: Any, msg: str='Can not cast python object: '):
+        super(JsoneaseCastError, self).__init__(''.join((msg, str(org), ' -> ', str(tgt))))
+
+
+class JsoneaseFormatError(JsoneaseError):
+    def __init__(self, s: str, pos: int, msg: str='Can not format json string: '):
+        line, col = self.linecol(s, pos)
+        super(JsoneaseFormatError, self).__init__(''.join((msg, line, ' : ', col)))
+
+
 # Encoders ####################################################################
 ###############################################################################
 class Encoder:
@@ -94,7 +118,7 @@ class BasicEncoder(Encoder):
         elif isinstance(obj, dict):
             return self.encode_dict(obj)
         elif throwable:
-            raise JSONError('Wrong Python object')
+            raise JsoneaseEncodeError(obj)
 
     def encode_str(self, obj: str) -> str:
         _obj = StringIO()
@@ -163,7 +187,7 @@ class AdvancedEncoder(BasicEncoder):
             elif isinstance(obj, abc.Mapping):
                 return self.encode_dict(obj)
         elif throwable:
-            raise JSONError('Wrong Python object')
+            raise JsoneaseEncodeError(obj)
 
     def encode_datetime(self, obj: Union[date, time]) -> str:
         if isinstance(obj, datetime):
@@ -188,7 +212,7 @@ class CustomEncoder(AdvancedEncoder):
         elif self.is_object(obj):
             return self.encode_object(obj)
         elif throwable:
-            raise JSONError('Wrong Python object')
+            raise JsoneaseEncodeError(obj)
 
     def is_object(self, obj) -> bool:
         return not (inspect.ismodule(obj) or inspect.isclass(obj) or inspect.isroutine(obj) or inspect.iscode(obj)
@@ -229,7 +253,6 @@ class CustomEncoder(AdvancedEncoder):
                               if k not in dir(type('', (), {})) and not inspect.isroutine(v)})
 
 
-###############################################################################
 # Decoders ####################################################################
 ###############################################################################
 class Decoder:
@@ -259,11 +282,11 @@ class BasicDecoder(Decoder):
 
     def decode(self, s: str) -> Any:
         if not s or not isinstance(s, str):
-            raise JSONError('Only "str" type is acceptable')
+            raise JsoneaseDecodeError(s, 0, 'Only "str" type is acceptable: ')
         pos = self.utf8_bom_re.match(s).end()
         obj, pos = self.scan(s, pos)
         if self.skip_whitespace(s, pos) != len(s):
-            raise JSONError('Incorrect end of json string')
+            raise JsoneaseDecodeError(s, pos, 'Incorrect end of json string: ')
         return obj
 
     def scan(self, s: str, pos: int) -> Tuple[Any, int]:
@@ -281,24 +304,24 @@ class BasicDecoder(Decoder):
         elif s[pos] == '{':
             return self.decode_object(s, pos)
         else:
-            raise JSONError('Wrong JSON string')
+            raise JsoneaseDecodeError(s, pos)
 
     def decode_null(self, s: str, pos: int) -> Tuple[None, int]:
         m = self.null_re.match(s, pos)
         if m is None:
-            raise JSONError('Error in parsing json "null" string')
+            raise JsoneaseDecodeError(s, pos, 'Can not decode json "null" string: ')
         return None, m.end()
 
     def decode_boolean(self, s: str, pos: int) -> Tuple[bool, int]:
         m = self.boolean_re.match(s, pos)
         if m is None:
-            raise JSONError('Error in parsing json "boolean" string')
+            raise JsoneaseDecodeError(s, pos, 'Can not decode json "boolean" string: ')
         return m.group() == 'true', m.end()
 
     def decode_number(self, s: str, pos: int) -> Tuple[Union[int, float], int]:
         m = self.number_re.match(s, pos)
         if m is None:
-            raise JSONError('Error in parsing json "number" string')
+            raise JsoneaseDecodeError(s, pos, 'Can not decode json "number" string: ')
         i, f, e = m.groups()
         if f or e:
             return float(m.group()), m.end()
@@ -311,7 +334,7 @@ class BasicDecoder(Decoder):
         while True:
             m = self.chunk_str_re.match(s, end)
             if m is None:
-                raise JSONError('Error in parsing json "string" string')
+                raise JsoneaseDecodeError(s, pos, 'Can not decode json "string" string: ')
             chunk, term = m.groups()
             if chunk:
                 _string.write(chunk)
@@ -322,7 +345,7 @@ class BasicDecoder(Decoder):
                 try:
                     esc = s[end]
                 except IndexError:
-                    raise JSONError('Error in parsing json "string" string')
+                    raise JsoneaseDecodeError(s, pos, 'Can not decode json "string" string: ')
                 if esc == 'u':
                     char = bytes(s[end - 1: end + 5], 'utf-8').decode('unicode-escape')
                     end += 5
@@ -331,7 +354,7 @@ class BasicDecoder(Decoder):
                         char = self.BACKSLASH[esc]
                         end += 1
                     except KeyError:
-                        raise JSONError('Error in parsing json "string" string')
+                        raise JsoneaseDecodeError(s, pos, 'Can not decode json "string" string: ')
                 _string.write(char)
         return _string.getvalue(), end
 
@@ -350,7 +373,7 @@ class BasicDecoder(Decoder):
                 end += 1
                 continue
             else:
-                raise JSONError('Error in parsing json "array" string')
+                raise JsoneaseDecodeError(s, pos, 'Can not decode json "array" string: ')
         return _array, end + 1
 
     def decode_object(self, s: str, pos: int) -> Tuple[Dict[str, Any], int]:
@@ -363,7 +386,7 @@ class BasicDecoder(Decoder):
             key, end = self.decode_string(s, end)
             end = self.skip_whitespace(s, end)
             if s[end] != ':':
-                raise JSONError('Error in parsing json "object" string')
+                raise JsoneaseDecodeError(s, pos, 'Can not decode json "object" string: ')
             value, end = self.scan(s, end + 1)
             _obj[key] = value
             end = self.skip_whitespace(s, end)
@@ -373,7 +396,7 @@ class BasicDecoder(Decoder):
                 end += 1
                 continue
             else:
-                raise JSONError('Error in parsing json "object" string')
+                raise JsoneaseDecodeError(s, pos, 'Can not decode json "object" string: ')
         return _obj, end + 1
 
 
@@ -452,22 +475,22 @@ class CustomDecoder(AdvancedDecoder):
             return clazz()
         elif isinstance(obj, (type(None), bool, str, int, float, datetime, date, time, uuid.UUID)):
             if len(values) != 1:
-                raise JSONError('Error in casting python object')
+                raise JsoneaseCastError(obj, clazz)
             return clazz(obj)
         elif isinstance(obj, (abc.Sequence, abc.Set)):
             if len(values) != len(obj):
-                raise JSONError('Error in casting python object')
+                raise JsoneaseCastError(obj, clazz)
             return clazz(*obj)
         else:
             if len(values) > len(obj):
-                raise JSONError('Error in casting python object')
+                raise JsoneaseCastError(obj, clazz)
             keys = list(inspect.signature(clazz.__init__).parameters.keys())[1:]
             _obj = {}
             for key in keys:
                 if key in obj:
                     _obj[key] = obj[key]
                 else:
-                    raise JSONError('Error in casting python object')
+                    raise JsoneaseCastError(obj, clazz)
             return clazz(**_obj)
 
 
@@ -498,7 +521,7 @@ class DefaultFormatter(Formatter):
 
     def format(self, s: str):
         if not s or not isinstance(s, str):
-            raise JSONError('Only "str" type is acceptable')
+            raise JsoneaseFormatError(s, 0, 'Only "str" type is acceptable: ')
         js = StringIO()
         pos = _default_decoder.utf8_bom_re.match(s).end()
         pos = _default_decoder.skip_whitespace(s, pos)
@@ -506,7 +529,7 @@ class DefaultFormatter(Formatter):
         obj, pos = self.scan(s, pos, self.align)
         js.write(obj)
         if _default_decoder.skip_whitespace(s, pos) != len(s):
-            raise JSONError('Incorrect end of json string')
+            raise JsoneaseFormatError(s, 0, 'Incorrect end of json string: ')
         js.write(s[pos:])
         return js.getvalue()
 
@@ -525,7 +548,7 @@ class DefaultFormatter(Formatter):
         elif s[pos] == '{':
             return self.format_object(s, pos, align)
         else:
-            raise JSONError('Wrong JSON string')
+            raise JsoneaseFormatError(s, pos)
 
     @staticmethod
     def concat(*s):
@@ -534,19 +557,19 @@ class DefaultFormatter(Formatter):
     def format_null(self, s: str, pos: int, align: int) -> Tuple[str, int]:
         m = _default_decoder.null_re.match(s, pos)
         if m is None:
-            raise JSONError('Error in formatting json "null" string')
+            raise JsoneaseFormatError(s, pos, 'Can not format json "null" string: ')
         return self.concat(align, m.group()), m.end()
 
     def format_boolean(self, s: str, pos: int, align: int) -> Tuple[str, int]:
         m = _default_decoder.boolean_re.match(s, pos)
         if m is None:
-            raise JSONError('Error in formatting json "boolean" string')
+            raise JsoneaseFormatError(s, pos, 'Can not format json "boolean" string: ')
         return self.concat(align, m.group()), m.end()
 
     def format_number(self, s: str, pos: int, align: int) -> Tuple[str, int]:
         m = _default_decoder.number_re.match(s, pos)
         if m is None:
-            raise JSONError('Error in formatting json "number" string')
+            raise JsoneaseFormatError(s, pos, 'Can not format json "number" string: ')
         return self.concat(align, m.group()), m.end()
 
     def format_string(self, s: str, pos: int, align: int) -> Tuple[str, int]:
@@ -554,7 +577,7 @@ class DefaultFormatter(Formatter):
         while True:
             m = _default_decoder.chunk_str_re.match(s, end)
             if m is None:
-                raise JSONError('Error in formatting json "string" string')
+                raise JsoneaseFormatError(s, pos, 'Can not format json "string" string: ')
             _, term = m.groups()
             end = m.end()
             if term == '"':
@@ -583,7 +606,7 @@ class DefaultFormatter(Formatter):
                 js.write(self.item_sep)
                 continue
             else:
-                raise JSONError('Error in parsing json "array" string')
+                raise JsoneaseFormatError(s, pos, 'Can not format json "array" string: ')
         align -= self.indent
         js.write(self.concat(align, ']'))
         return js.getvalue(), end + 1
@@ -601,7 +624,7 @@ class DefaultFormatter(Formatter):
             key, end = self.format_string(s, end, align)
             end = _default_decoder.skip_whitespace(s, end)
             if s[end] != ':':
-                raise JSONError('Error in parsing json "object" string')
+                raise JsoneaseFormatError(s, pos, 'Can not format json "object" string: ')
             js.write(self.concat(key, self.key_sep))
             value, end = self.scan(s, end + 1, align)
             js.write(value.lstrip())
@@ -614,7 +637,7 @@ class DefaultFormatter(Formatter):
                 js.write(self.item_sep)
                 continue
             else:
-                raise JSONError('Error in parsing json "object" string')
+                raise JsoneaseFormatError(s, pos, 'Can not format json "object" string: ')
         align -= self.indent
         js.write(self.concat(align, '}'))
         return js.getvalue(), end + 1
