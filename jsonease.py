@@ -42,6 +42,8 @@ __description__ = 'JSON tools'
 __status__ = "Internal"
 
 
+# Constants ###################################################################
+###############################################################################
 JSON_ENCODING = 'utf-8'
 RE_FLAGS = re.MULTILINE | re.DOTALL
 
@@ -58,24 +60,43 @@ class JsoneaseError(Exception):
 
 class JsoneaseEncodeError(JsoneaseError):
     def __init__(self, obj: Any, msg: str='Can not encode python object: '):
-        super(JsoneaseEncodeError, self).__init__(''.join((msg, str(obj))))
+        self.obj = obj
+        self.msg = msg
+
+    def __str__(self):
+        return ''.join((self.msg, str(self.obj)))
 
 
 class JsoneaseDecodeError(JsoneaseError):
     def __init__(self, s: str, pos: int, msg: str='Can not decode json string: '):
-        line, col = self.linecol(s, pos)
-        super(JsoneaseDecodeError, self).__init__(''.join((msg, line, ' : ', col)))
+        self.s = s
+        self.pos = pos
+        self.msg = msg
+
+    def __str__(self):
+        line, col = self.linecol(self.s, self.pos)
+        return ''.join((self.msg, line, ' : ', col))
 
 
 class JsoneaseCastError(JsoneaseError):
     def __init__(self, org: Any, tgt: Any, msg: str='Can not cast python object: '):
-        super(JsoneaseCastError, self).__init__(''.join((msg, str(org), ' -> ', str(tgt))))
+        self.org = org
+        self.tgt = tgt
+        self.msg = msg
+
+    def __str__(self):
+        return ''.join((self.msg, str(self.org), ' -> ', str(self.tgt)))
 
 
 class JsoneaseFormatError(JsoneaseError):
     def __init__(self, s: str, pos: int, msg: str='Can not format json string: '):
-        line, col = self.linecol(s, pos)
-        super(JsoneaseFormatError, self).__init__(''.join((msg, line, ' : ', col)))
+        self.s = s
+        self.pos = pos
+        self.msg = msg
+
+    def __str__(self):
+        line, col = self.linecol(self.s, self.pos)
+        return ''.join((self.msg, line, ' : ', col))
 
 
 # Encoders ####################################################################
@@ -494,7 +515,6 @@ class CustomDecoder(AdvancedDecoder):
             return clazz(**_obj)
 
 
-###############################################################################
 # Formatter ###################################################################
 ###############################################################################
 class Formatter:
@@ -646,7 +666,6 @@ class DefaultFormatter(Formatter):
 _default_formatter = DefaultFormatter()
 
 
-###############################################################################
 # APIs ########################################################################
 ###############################################################################
 def formats(s: str, align: int=0, indent: int=4, item_sep: str=',\r\n', key_sep: str=': ', eol: str='\r\n') -> str:
